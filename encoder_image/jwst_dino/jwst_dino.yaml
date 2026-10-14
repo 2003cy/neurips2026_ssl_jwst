@@ -1,0 +1,91 @@
+# JWST_DINO default config — reproduces astrodino_f150w_vitb_ps6_st3_bs128_distribute.
+# Crop/patch geometry is defined ONCE under data: and linked to the model in trainer.py.
+
+model:
+  # backbone (ViT size — no presets)
+  embed_dim: 512
+  depth: 12
+  num_heads: 8
+  mlp_ratio: 4.0
+  in_chans: 1
+  num_register_tokens: 7
+  drop_path_rate: 0.2
+  layerscale_init: 1.0e-5
+  # projection head
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 192
+  head_nlayers: 3
+  head_hidden_dim: 768
+  # loss weights
+  dino_loss_weight: 1.1
+  ibot_loss_weight: 1.0
+  koleo_loss_weight: 0.03
+  ibot_separate_head: false  # shared DINO+iBOT head (dinov2/astrodino default; v6 separate-head worsened end iBOT)
+  # teacher EMA + temperature
+  momentum_teacher: 0.994
+  final_momentum_teacher: 1.0
+  teacher_temp: 0.07
+  warmup_teacher_temp: 0.04   # softer start (dinov2/astrodino default), was 0.06
+  warmup_teacher_temp_epochs: 30   # longer teacher-temp warmup (dinov2 warms ~30% of run), was 10
+  student_temp: 0.1
+  center_momentum: 0.95   # EMA timescale of the DINO/iBOT teacher center; higher = slower/smoother target
+  # optimizer / schedule (epochs are in OFFICIAL_EPOCH_LENGTH units)
+  lr: 8.0e-5  # base @ batch=1024; actual LR = lr * sqrt(eff_batch/1024) via _effective_lr
+  min_lr: 1.0e-06   # floor the cosine LR schedule decays to (absolute, not batch-scaled); lower=quieter tail
+  warmup_epochs: 10
+  weight_decay: 0.004
+  weight_decay_end: 0.04
+  clip_grad: 3.0
+  freeze_last_layer_epochs: 3
+  patch_embed_lr_mult: 0.2
+  layerwise_decay: 0.9
+  betas: [0.9, 0.999]
+  official_epoch_length: 1000
+
+data:
+  root: ../../data/image/    # relative to encoder_image/jwst_dino, where trainer.py runs
+  filter: f150w
+  survey: [cosmos, ceers, outthere, jades]   # joint training; per-survey 90/5/5 split
+  batch_size: 60   # per-GPU; ~37 GiB peak on 40GB A100 (separate_head=false). x20 GPU = 1200 eff; LR auto-scales
+  num_workers: 16
+  # crop / patch geometry (linked to model)
+  patch_size: 6
+  patch_stride: 3
+  global_crops_size: 72
+  local_crops_size: 36
+  local_crops_number: 8
+  center_crop_size: 100
+  # within-survey noise aug: half-normal s=|N(0,w)|, capped, scaled by per-tile SKY_SIGMA
+  noise_w: 1.0       # half-normal scale; lowered 1.5->1.0 so most views are lower-noise (helps iBOT patch targets)
+  noise_s_max: 2.0   # cap floor-mult at sqrt(1+2^2)=2.24 (keep object cores; drop only the wash-out tail)
+  # iBOT masking
+  ibot_mask_ratio_min_max: [0.1, 0.3]
+  ibot_mask_sample_probability: 0.5
+
+trainer:
+  accelerator: gpu
+  strategy: ddp
+  devices: 1          # overridden by sbatch (--trainer.devices / --trainer.num_nodes)
+  num_nodes: 1
+  precision: bf16-mixed
+  max_epochs: 310           # total steps = max_epochs x limit_train_batches; cosine LR/teacher schedules anneal over this
+  limit_train_batches: 500
+  check_val_every_n_epoch: 10
+  limit_val_batches: 50
+  num_sanity_val_steps: 0
+  log_every_n_steps: 10
+  enable_progress_bar: false
+  logger:
+    class_path: lightning.pytorch.loggers.CSVLogger
+    init_args:
+      save_dir: outputs/
+      name: jwst_dino_ps6_st3_bs60_size72
+  callbacks:
+    - class_path: callbacks.EpochPrinter
+    - class_path: callbacks.PlotMetrics
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        every_n_epochs: 10
+        save_top_k: -1
+        save_last: true
+        filename: "epoch={epoch}-step={step}"

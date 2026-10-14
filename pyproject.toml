@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssl_outthere"
+version = "0.0.1"
+description = "Multi modal, SSL representation learning and downstream tasks for JWST NIRISS/NIRCam images and spectra"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.10"
+authors = [ { name = "Yang Cheng", email = "103347489+2003cy@users.noreply.github.com" } ]
+license = "MIT"
+# Dependencies are managed by pixi (pixi.toml). Keep this list empty so that
+# a bare `pip install -e .` inside the pixi env does not pull duplicate wheels.
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent",
+]
+
+urls = { "Homepage" = "https://github.com/2003cy/neurips2026_ssl_jwst", "Repository" = "https://github.com/2003cy/neurips2026_ssl_jwst", "Bug Tracker" = "https://github.com/2003cy/neurips2026_ssl_jwst/issues" }
+
+keywords = ["astronomy", "machine-learning", "self-supervised", "jwst", "image","galaxy","galaxy evolution", "spectroscopy"]
+
+license-files = ["LICENSE"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["images", "outputs", "notebooks", "data"]

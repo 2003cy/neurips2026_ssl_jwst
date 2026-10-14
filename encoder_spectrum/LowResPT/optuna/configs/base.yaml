@@ -1,0 +1,49 @@
+model:
+  mlp_ratio: 4.0
+  bias: true
+  patch_size: 4
+  stride: 2
+  patch_invalid_threshold: 0.25
+  min_unmasked: 4
+  max_line_blocks: 0
+  num_line_detect: 1
+  line_prominence: 1.2
+  selected_mask_prob: 1.0
+  loss_weighting: invvar
+  use_patch_stats: true
+  use_fast_masking: true
+  decoder_hidden_dims: []
+  betas: [0.9, 0.95]
+  min_lr: 1.0e-6
+
+data:
+  fits_path: data/spectrum/DJA_spectra_v4.5.fits   # relative to the repository root
+  batch_size: 1024
+  num_workers: 2
+  train_val_split: 0.9
+  use_infinite_sampler: true
+  grades: [1, 2, 3]
+  min_sn50: null
+  min_redshift: null
+  max_redshift: null
+  frac_valid_pix: 0.5
+  use_jansky: false
+  err_column: full_err
+  wl_ref_min: 1
+  wl_ref_max: 2
+
+trainer:
+  max_epochs: 300
+  accelerator: gpu
+  precision: bf16-mixed
+  log_every_n_steps: 10
+  patience: 100
+
+probe:
+  every_n_epochs: 20
+  probe: lasso
+  lasso_alpha: 5.0e-4
+  lasso_kwargs: {max_iter: 20000, tol: 0.01}
+  track_knn: true
+  n_splits: 40
+  n_jobs: 8
